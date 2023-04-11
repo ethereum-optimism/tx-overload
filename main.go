@@ -21,7 +21,6 @@ var logger log.Logger
 
 type TxOverload struct {
 	Distrbutor      *Distributor
-	SendsPerSecond  int
 	BytesPerSecond  int
 	StartTime       time.Time
 	NumDistributors int
@@ -129,7 +128,6 @@ func Main(cliCtx *cli.Context) error {
 
 	t := &TxOverload{
 		Distrbutor:      distributor,
-		SendsPerSecond:  cliCtx.GlobalInt(SendRateFlag.Name),
 		BytesPerSecond:  cliCtx.GlobalInt(DataRateFlag.Name),
 		NumDistributors: numDistributors,
 	}

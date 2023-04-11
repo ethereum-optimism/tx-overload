@@ -16,11 +16,6 @@ var (
 		Required: true,
 		EnvVar:   opservice.PrefixEnvVar(envVarPrefix, "ETH_RPC"),
 	}
-	SendRateFlag = cli.Int64Flag{
-		Name:   "send-rate",
-		Value:  5,
-		EnvVar: opservice.PrefixEnvVar(envVarPrefix, "SEND_RATE"),
-	}
 	DataRateFlag = cli.Int64Flag{
 		Name:   "data-rate",
 		Usage:  "data rate in bytes per second.",
@@ -35,7 +30,7 @@ var (
 )
 
 func init() {
-	flags = append(flags, EthRpcFlag, SendRateFlag, DataRateFlag, NumDistributors)
+	flags = append(flags, EthRpcFlag, DataRateFlag, NumDistributors)
 	flags = append(flags, oplog.CLIFlags(envVarPrefix)...)
 	flags = append(flags, txmgr.CLIFlags(envVarPrefix)...)
 	flags = append(flags, opmetrics.CLIFlags(envVarPrefix)...)
