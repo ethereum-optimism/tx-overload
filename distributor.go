@@ -104,6 +104,19 @@ func (d *Distributor) Stop() {
 	}
 }
 
+func (d *Distributor) Send(ctx context.Context, tx txmgr.TxCandidate) error {
+	shard := d.shards[rand.Intn(len(d.shards))]
+	select {
+	case shard.reqs <- tx:
+		d.m.RecordQueuedTx(&tx)
+		return nil
+	default:
+		d.logger.Warn("shard channel is full. dropping", "shard_account", shard.From())
+		d.m.RecordTxDrop()
+		return ErrQueueFull
+	}
+}
+
 func (d *Distributor) runShards() {
 	for _, s := range d.shards {
 		s := s
@@ -135,6 +148,7 @@ func (d *Distributor) airdrop() {
 	defer ticker.Stop()
 
 	for range ticker.C {
+		var tx *types.Transaction
 		for _, shard := range d.shards {
 			recipient := shard.SimpleTxManager.From()
 			bal, err := d.client.BalanceAt(ctx, recipient, nil)
@@ -144,45 +158,41 @@ func (d *Distributor) airdrop() {
 			}
 			if bal.Cmp(lowBalance) < 0 {
 				d.logger.Debug("initiating airdrop", "recipient", recipient, "old_balance", bal)
-				if err := d.doAirdrop(ctx, recipient, topOffAmount); err != nil {
-					d.logger.Error("failed to airdrop", "err", err, "recipient", recipient)
+				var err error
+				tx, err = d.sendAirdrop(ctx, recipient, topOffAmount)
+				if err != nil {
+					d.logger.Error("failed to send airdrop tx", "err", err, "recipient", recipient)
 					continue
 				}
-				d.logger.Info("airdrop successful", "recipient", recipient, "old_balance", bal)
 			} else {
 				d.logger.Debug("balance is high enough", "account", recipient, "balance", bal)
 			}
 		}
+		if tx == nil {
+			continue
+		}
+		if _, err := bind.WaitMined(ctx, d.client, tx); err != nil {
+			d.logger.Error("Could not airdrop", "err", err)
+		} else {
+			d.logger.Info("airdrop successful")
+		}
 	}
 }
 
-func (d *Distributor) Send(ctx context.Context, tx txmgr.TxCandidate) error {
-	shard := d.shards[rand.Intn(len(d.shards))]
-	select {
-	case shard.reqs <- tx:
-		d.m.RecordQueuedTx(&tx)
-		return nil
-	default:
-		d.logger.Warn("shard channel is full. dropping", "shard_account", shard.From())
-		d.m.RecordTxDrop()
-		return ErrQueueFull
-	}
-}
-
-func (d *Distributor) doAirdrop(ctx context.Context, recipient common.Address, amount *big.Int) error {
+func (d *Distributor) sendAirdrop(ctx context.Context, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
 	gasTipCap, err := d.client.SuggestGasTipCap(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	head, err := d.client.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	gasFeeCap := new(big.Int).Add(gasTipCap, new(big.Int).Mul(head.BaseFee, big.NewInt(2)))
 
 	nonce, err := d.client.NonceAt(ctx, d.from, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx := &types.DynamicFeeTx{
 		ChainID:   d.chainID,
@@ -195,10 +205,10 @@ func (d *Distributor) doAirdrop(ctx context.Context, recipient common.Address, a
 	}
 	signed, err := d.rootSigner(ctx, d.from, types.NewTx(tx))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err = d.client.SendTransaction(ctx, signed); err == nil {
-		_, err = bind.WaitMined(ctx, d.client, signed)
+	if err = d.client.SendTransaction(ctx, signed); err != nil {
+		return nil, err
 	}
-	return err
+	return signed, err
 }
