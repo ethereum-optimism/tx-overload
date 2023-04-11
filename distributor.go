@@ -139,29 +139,34 @@ func (d *Distributor) airdrop() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		for _, shard := range d.shards {
-			recipient := shard.SimpleTxManager.From()
-			bal, err := d.client.BalanceAt(ctx, recipient, nil)
-			if err != nil {
-				d.logger.Error("failed to get balance", "err", err, "account", recipient)
-				continue
-			}
-			if bal.Cmp(lowBalance) < 0 {
-				d.logger.Debug("initiating airdrop", "recipient", recipient, "old_balance", bal)
-				_, err := d.root.Send(ctx, txmgr.TxCandidate{
-					To:       &recipient,
-					Value:    topOffAmount,
-					GasLimit: params.TxGas,
-				})
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			for _, shard := range d.shards {
+				recipient := shard.SimpleTxManager.From()
+				bal, err := d.client.BalanceAt(ctx, recipient, nil)
 				if err != nil {
-					d.logger.Error("failed to send airdrop tx", "err", err, "recipient", recipient)
+					d.logger.Error("failed to get balance", "err", err, "account", recipient)
 					continue
-				} else {
-					d.logger.Info("airdrop successful", "recipient", recipient)
 				}
-			} else {
-				d.logger.Debug("balance is high enough", "account", recipient, "balance", bal)
+				if bal.Cmp(lowBalance) < 0 {
+					d.logger.Debug("initiating airdrop", "recipient", recipient, "old_balance", bal)
+					_, err := d.root.Send(ctx, txmgr.TxCandidate{
+						To:       &recipient,
+						Value:    topOffAmount,
+						GasLimit: params.TxGas,
+					})
+					if err != nil {
+						d.logger.Error("failed to send airdrop tx", "err", err, "recipient", recipient)
+						continue
+					} else {
+						d.logger.Info("airdrop successful", "recipient", recipient)
+					}
+				} else {
+					d.logger.Debug("balance is high enough", "account", recipient, "balance", bal)
+				}
 			}
 		}
 	}
