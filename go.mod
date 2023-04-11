@@ -69,6 +69,6 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
 
-replace github.com/ethereum-optimism/optimism => /home/inphi/optimism/optimism
+//replace github.com/ethereum-optimism/optimism => /home/inphi/optimism/optimism
 
 replace github.com/ethereum/go-ethereum v1.11.5 => github.com/ethereum-optimism/op-geth v1.11.2-de8c5df46.0.20230324105532-555b76f39878

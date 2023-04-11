@@ -10,7 +10,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-CGO_ENABLED=0 GOOS=linux go build -o tx-overload.bin .
+RUN CGO_ENABLED=0 GOOS=linux go build -o tx-overload.bin .
 
 FROM alpine:latest
 
