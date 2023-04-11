@@ -20,12 +20,11 @@ import (
 var logger log.Logger
 
 type TxOverload struct {
-	Distrbutor     *Distributor
-	SendsPerSecond int
-	BytesPerSecond int
-
-	StartTime time.Time
-	BytesSent int
+	Distrbutor      *Distributor
+	SendsPerSecond  int
+	BytesPerSecond  int
+	StartTime       time.Time
+	NumDistributors int
 }
 
 func (t *TxOverload) generateTxCandidate() (txmgr.TxCandidate, error) {
@@ -53,7 +52,10 @@ func (t *TxOverload) Start() {
 	ctx := context.Background()
 	t.Distrbutor.Start()
 
-	ticker := time.NewTicker(50 * time.Millisecond)
+	blockTimeMs := 2000
+	tickRate := time.Duration(blockTimeMs/t.NumDistributors) * time.Millisecond
+	ticker := time.NewTicker(tickRate)
+	var backoff bool
 	defer ticker.Stop()
 	for {
 		select {
@@ -66,8 +68,14 @@ func (t *TxOverload) Start() {
 				logger.Warn("unable to generate tx candidate", "err", err)
 				continue
 			}
-			t.Distrbutor.Send(ctx, candidate)
-			t.BytesSent += 20 + len(candidate.TxData)
+			if err := t.Distrbutor.Send(ctx, candidate); err == ErrQueueFull {
+				// backoff for a bit
+				ticker.Reset(tickRate * 2)
+				backoff = true
+				continue
+			} else if backoff {
+				ticker.Reset(tickRate)
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -106,9 +114,10 @@ func Main(cliCtx *cli.Context) error {
 	}
 
 	t := &TxOverload{
-		Distrbutor:     distributor,
-		SendsPerSecond: cliCtx.GlobalInt(SendRateFlag.Name),
-		BytesPerSecond: cliCtx.GlobalInt(DataRateFlag.Name),
+		Distrbutor:      distributor,
+		SendsPerSecond:  cliCtx.GlobalInt(SendRateFlag.Name),
+		BytesPerSecond:  cliCtx.GlobalInt(DataRateFlag.Name),
+		NumDistributors: numDistributors,
 	}
 	go t.Start()
 

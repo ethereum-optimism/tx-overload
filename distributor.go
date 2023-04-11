@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -9,7 +10,6 @@ import (
 
 	opcrypto "github.com/ethereum-optimism/optimism/op-service/crypto"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -25,7 +25,10 @@ type Shard struct {
 
 const txBufferSize = 1000
 
+var ErrQueueFull = errors.New("queue full")
+
 type Distributor struct {
+	m          *Metrics
 	shards     []Shard
 	client     *ethclient.Client
 	rootSigner opcrypto.SignerFn
@@ -35,7 +38,7 @@ type Distributor struct {
 	cancel     chan struct{}
 }
 
-func NewDistributor(txmgrCfg txmgr.CLIConfig, l log.Logger, m metrics.TxMetricer) (*Distributor, error) {
+func NewDistributor(txmgrCfg txmgr.CLIConfig, l log.Logger, m *Metrics) (*Distributor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	client, err := ethclient.DialContext(ctx, txmgrCfg.L1RPCURL)
@@ -78,6 +81,7 @@ func NewDistributor(txmgrCfg txmgr.CLIConfig, l log.Logger, m metrics.TxMetricer
 	}
 
 	return &Distributor{
+		m:          m,
 		shards:     shards,
 		client:     client,
 		rootSigner: signerFactory(chainID),
@@ -111,6 +115,7 @@ func (d *Distributor) runShards() {
 					continue
 				} else {
 					logger.Trace("tx successfully published", "tx_hash", receipt.TxHash)
+					d.m.RecordTx(&req)
 				}
 			}
 		}()
@@ -151,12 +156,16 @@ func (d *Distributor) airdrop() {
 	}
 }
 
-func (d *Distributor) Send(ctx context.Context, tx txmgr.TxCandidate) {
+func (d *Distributor) Send(ctx context.Context, tx txmgr.TxCandidate) error {
 	shard := d.shards[rand.Intn(len(d.shards))]
 	select {
 	case shard.reqs <- tx:
+		d.m.RecordQueuedTx(&tx)
+		return nil
 	default:
 		d.logger.Warn("shard channel is full. dropping", "shard_account", shard.From())
+		d.m.RecordTxDrop()
+		return ErrQueueFull
 	}
 }
 
