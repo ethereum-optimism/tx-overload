@@ -52,11 +52,31 @@ func (t *TxOverload) Start() {
 	ctx := context.Background()
 	t.Distrbutor.Start()
 
-	blockTimeMs := 2000
+	const blockTimeMs = 2000
 	tickRate := time.Duration(blockTimeMs/t.NumDistributors) * time.Millisecond
 	ticker := time.NewTicker(tickRate)
-	var backoff bool
 	defer ticker.Stop()
+
+	var backoff = tickRate
+	var backingOff bool
+	backoffFn := func(err error) {
+		const maxBackoff = time.Second * 2
+		switch {
+		case err == nil && backingOff:
+			backoff = tickRate
+			backingOff = false
+			ticker.Reset(tickRate)
+		case err == ErrQueueFull:
+			backingOff = true
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			ticker.Reset(backoff)
+			logger.Warn("backoff", "duration", backoff)
+		}
+	}
+
 	for {
 		select {
 		case <-ticker.C:
@@ -68,14 +88,8 @@ func (t *TxOverload) Start() {
 				logger.Warn("unable to generate tx candidate", "err", err)
 				continue
 			}
-			if err := t.Distrbutor.Send(ctx, candidate); err == ErrQueueFull {
-				// backoff for a bit
-				ticker.Reset(tickRate * 2)
-				backoff = true
-				continue
-			} else if backoff {
-				ticker.Reset(tickRate)
-			}
+			err = t.Distrbutor.Send(ctx, candidate)
+			backoffFn(err)
 		case <-ctx.Done():
 			return
 		}
