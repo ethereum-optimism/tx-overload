@@ -36,4 +36,4 @@ func init() {
 	flags = append(flags, opmetrics.CLIFlags(envVarPrefix)...)
 }
 
-var flags = []cli.Flag{}
+var flags []cli.Flag

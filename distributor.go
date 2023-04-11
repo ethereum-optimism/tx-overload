@@ -134,7 +134,7 @@ func (d *Distributor) airdrop() {
 		cancel()
 	}()
 
-	lowBalance := new(big.Int).Mul(big.NewInt(20_000_000), big.NewInt(params.GWei)) // 0.02 ETH
+	lowBalance := new(big.Int).Mul(big.NewInt(200_000_000), big.NewInt(params.GWei)) // 0.2 ETH
 	topOffAmount := new(big.Int).Mul(lowBalance, big.NewInt(3))
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()

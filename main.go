@@ -72,7 +72,7 @@ func (t *TxOverload) Start() {
 				backoff = maxBackoff
 			}
 			ticker.Reset(backoff)
-			logger.Warn("backoff", "duration", backoff)
+			logger.Debug("backoff", "duration", backoff)
 		}
 	}
 
