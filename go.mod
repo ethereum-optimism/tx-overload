@@ -3,7 +3,7 @@ module github.com/inphi/tx-overload
 go 1.19
 
 require (
-	github.com/ethereum-optimism/optimism v1.0.2-0.20230407160336-cbb0bb5d6bb1
+	github.com/ethereum-optimism/optimism v1.0.3-0.20230411052254-110228f42fa1
 	github.com/prometheus/client_golang v1.14.0
 )
 
