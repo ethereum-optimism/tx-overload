@@ -67,7 +67,7 @@ func NewDistributor(txmgrCfg txmgr.CLIConfig, l log.Logger, m *Metrics) (*Distri
 		if err := cfg.Check(); err != nil {
 			panic(err) // bug
 		}
-		tm, err := txmgr.NewSimpleTxManager(fmt.Sprintf("%d", i), logger, m, cfg)
+		tm, err := txmgr.NewSimpleTxManager(fmt.Sprintf("shard-%d", i), logger, m, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -150,8 +150,9 @@ func (d *Distributor) airdrop() {
 			if bal.Cmp(lowBalance) < 0 {
 				d.logger.Debug("initiating airdrop", "recipient", recipient, "old_balance", bal)
 				_, err := d.root.Send(ctx, txmgr.TxCandidate{
-					To:    &recipient,
-					Value: topOffAmount,
+					To:       &recipient,
+					Value:    topOffAmount,
+					GasLimit: params.TxGas,
 				})
 				if err != nil {
 					d.logger.Error("failed to send airdrop tx", "err", err, "recipient", recipient)
