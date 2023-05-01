@@ -7,7 +7,7 @@ Generate load on Optimism Bedrock using transactions with random calldata.
 ```go
 go build 
 
-./tx-oveerload \
+./tx-overload \
     --eth-rpc http://localhost:8545 \
     --private-key <private_key> \
     --num-distributors 10 \
