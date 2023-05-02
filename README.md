@@ -18,3 +18,7 @@ More options are avaiable:
 ```
 ./tx-overload --help
 ```
+
+## License
+
+All files within this repository are licensed under the [MIT License](https://github.com/ethereum-optimism/optimism/blob/master/LICENSE).
