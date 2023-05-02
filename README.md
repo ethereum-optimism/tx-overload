@@ -21,4 +21,4 @@ More options are avaiable:
 
 ## License
 
-All files within this repository are licensed under the [MIT License](https://github.com/ethereum-optimism/optimism/blob/master/LICENSE).
+All files within this repository are licensed under the [MIT License](https://github.com/ethereum-optimism/tx-overload/blob/master/LICENSE).
